@@ -13,25 +13,29 @@
 #include <GLUT/glut.h>
 #include <stdlib.h>
 
-static double rotate_x = 0.0;
-static double rotate_y = 0.0;
-static double rotate_z = 0.0;
+/***** Global variables *****/
+GLint win_width = 800;      // window dimensions
+GLint win_height = 800;
 
-float zoomFactor = 60;
+GLint angle = 60, nearP = 1, farP = 1000;
 
-GLUquadricObj *obj;
+GLUquadricObj *obj;         // Pointer for quadric objects.
+
+// Rotation of the whole object
+static GLfloat rotate_x = 0.0, rotate_y = 0.0, rotate_z = 0.0;
+
+// Mouse function related variables
+static int moving = 0, startx, starty;
 
 // Initialize OpenGL graphics
 void init(void)
 {
-    glClearColor (0.0, 0.0, 0.0, 1.0); // clear the viewport to black
-    
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // black background
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    glOrtho(-40.0, 40.0, -40.0, 40.0, -40.0, 40.0);
-    glEnable(GL_DEPTH_TEST);
-    
-    glEnable(GL_LIGHTING); //Enables openGl lighting
+    gluPerspective(angle, 1.0, nearP, farP);
+    gluLookAt(0.0, 0.0, 350.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
+    glEnable(GL_LIGHTING);
     glEnable(GL_LIGHT0);
     GLfloat black[] = { 0.0, 0.0, 0.0, 1.0 };
     GLfloat cyan[] = { 0.0, 1.0, 1.0, 1.0 };
@@ -40,18 +44,14 @@ void init(void)
     
     glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, cyan);
     glMaterialfv(GL_FRONT, GL_SPECULAR, white);
-    glMaterialf(GL_FRONT, GL_SHININESS, 10);
+    glMaterialf(GL_FRONT, GL_SHININESS, 50);
     
     glLightfv(GL_LIGHT0, GL_AMBIENT, black);
     glLightfv(GL_LIGHT0, GL_SPECULAR, white);
     glLightfv(GL_LIGHT0, GL_POSITION, direction);
+    
     glEnable(GL_COLOR_MATERIAL);
-    glClearStencil(0);
-    glEnable(GL_STENCIL_TEST);
-    
-    glColorMaterial(GL_FRONT_AND_BACK, GL_DIFFUSE);
-    
-    glMatrixMode(GL_MODELVIEW);
+    glEnable(GL_DEPTH_TEST);            // turn on the depth buffer
 }
 
 void minionBody()
@@ -60,7 +60,7 @@ void minionBody()
     
     glPushMatrix();
     glRotatef(90.0,1.0,0.0,0.0);
-   	gluCylinder(obj,8.0,8.0,12,50,50); //middle body
+    gluCylinder(obj,8.0,8.0,12,50,50); //middle body
     glPopMatrix();
     
     glPushMatrix();
@@ -185,7 +185,7 @@ void minionBody()
     glPopMatrix();
 }
 
-void mydisplay(void)
+void display(void)
 {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glMatrixMode(GL_MODELVIEW);
@@ -194,10 +194,6 @@ void mydisplay(void)
     glRotatef(rotate_x, 1.0, 0.0, 0.0 );
     glRotatef(rotate_y, 0.0, 1.0, 0.0);
     glRotatef(rotate_z, 0.0, 0.0, 1.0);
-    
-    int w = glutGet(GLUT_WINDOW_WIDTH);
-    int h = glutGet(GLUT_WINDOW_HEIGHT);
-    gluPerspective(zoomFactor, w / h, 0.1, 100);
     
     glMatrixMode( GL_MODELVIEW );
     glLoadIdentity();
@@ -218,10 +214,12 @@ void reshape(int w, int h)
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     if (w <= h)
-        glOrtho(-40.0, 40.0, -40.0 * (GLfloat) h / (GLfloat) w, 40.0 * (GLfloat) h / (GLfloat) w, -40.0, 40.0);
+        gluPerspective(angle, 1.0, nearP, farP);
     else
-        glOrtho(-40.0 * (GLfloat) w / (GLfloat) h, 40.0 * (GLfloat) w / (GLfloat) h, -40.0, 40.0, -40.0, 40.0);
+        gluPerspective(angle, 1.0, nearP, farP);
+    gluLookAt(0.0, 0.0, 350.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
     glMatrixMode(GL_MODELVIEW);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 }
 
 // keyboard callback function
@@ -231,21 +229,13 @@ void keyboard(unsigned char key, int x, int y)
     {
         case 'w':
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-            mydisplay();
+            display();
             break;
         case 'f':
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-            mydisplay();
+            display();
             break;
-        case 'i':
-            zoomFactor-=3;
-            glutPostRedisplay();
-            break;
-        case 'o':
-            zoomFactor+=3;
-            glutPostRedisplay();
-            break;
-        case 27:
+        case 113:
             exit(0);
             break;
     }
@@ -266,18 +256,49 @@ void specialKeys( int key, int x, int y )
     glutPostRedisplay();
 }
 
-int main(int argc, char** argv)
+// mouse function
+static void mouse(int button, int state, int x, int y)
 {
-    glutInit(&argc,argv);           //set window properties
-    glutInitDisplayMode(GLUT_SINGLE|GLUT_RGB|GLUT_DEPTH);
-    glutInitWindowSize(800,800);
-    glutInitWindowPosition(100,100);
-    glutCreateWindow("Project 2");
-    glutDisplayFunc(mydisplay);     //display callback
-    glutSpecialFunc(specialKeys);
-    init();                         //set OpenGL state
+    /* Rotate the scene with the left mouse button. */
+    if (button == GLUT_LEFT_BUTTON) {
+        if (state == GLUT_DOWN) {
+            moving = 1;
+            startx = x;
+            starty = y;
+        }
+        if (state == GLUT_UP) {
+            moving = 0;
+        }
+    }
+}
+
+// motion function
+static void motion(int x, int y)
+{
+    if (moving) {
+        rotate_x = rotate_x + (x - startx);
+        rotate_y = rotate_y + (y - starty);
+        startx = x;
+        starty = y;
+        glutPostRedisplay();
+    }
+}
+
+int main(int argc, char **argv)
+{
+    
+    glutInit(&argc, argv);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_DEPTH | GLUT_RGB );
+    glutInitWindowSize(win_width, win_height);       // 400 x 400 pixel window
+    glutInitWindowPosition(100, 100);   // place window upper at the left corner on display
+    glutCreateWindow("Project 2 - Minions");  // window title
+    glutDisplayFunc(display);
     glutReshapeFunc(reshape);
+    glutMouseFunc(mouse);
+    glutMotionFunc(motion);
     glutKeyboardFunc(keyboard);
     
-    glutMainLoop();                 //enter event loop
+    init();
+    
+    glutMainLoop();
 }
